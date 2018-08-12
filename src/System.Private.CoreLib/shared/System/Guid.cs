@@ -5,8 +5,8 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using Internal.Runtime.CompilerServices;
+using X86 = System.Runtime.Intrinsics.X86;
 
 namespace System
 {
@@ -1048,19 +1048,49 @@ namespace System
             else g = (Guid)o;
 
             // Now compare each of the elements
-            return g._a == _a &&
-                Unsafe.Add(ref g._a, 1) == Unsafe.Add(ref _a, 1) &&
-                Unsafe.Add(ref g._a, 2) == Unsafe.Add(ref _a, 2) &&
-                Unsafe.Add(ref g._a, 3) == Unsafe.Add(ref _a, 3);
+            if (Sse2.IsSupported)
+            {
+                unsafe 
+                {
+                    fixed (int* aPtr = &_a)
+                    {
+                        var left = Sse2.LoadVector128((byte*) aPtr);
+                        var right = Sse2.LoadVector128((byte*) &g._a);
+                        return Sse2.MoveMask(Sse2.CompareEqual(left, right)) == 0xffff;
+                    }
+                }
+            }
+            else
+            {
+                return g._a == _a &&
+                    Unsafe.Add(ref g._a, 1) == Unsafe.Add(ref _a, 1) &&
+                    Unsafe.Add(ref g._a, 2) == Unsafe.Add(ref _a, 2) &&
+                    Unsafe.Add(ref g._a, 3) == Unsafe.Add(ref _a, 3);
+            }
         }
 
         public bool Equals(Guid g)
         {
             // Now compare each of the elements
-            return g._a == _a &&
-                Unsafe.Add(ref g._a, 1) == Unsafe.Add(ref _a, 1) &&
-                Unsafe.Add(ref g._a, 2) == Unsafe.Add(ref _a, 2) &&
-                Unsafe.Add(ref g._a, 3) == Unsafe.Add(ref _a, 3);
+            if (Sse2.IsSupported)
+            {
+                unsafe 
+                {
+                    fixed (int* aPtr = &_a)
+                    {
+                        var left = Sse2.LoadVector128((byte*) aPtr);
+                        var right = Sse2.LoadVector128((byte*) &g._a);
+                        return Sse2.MoveMask(Sse2.CompareEqual(left, right)) == 0xffff;
+                    }
+                }
+            }
+            else
+            {
+                return g._a == _a &&
+                    Unsafe.Add(ref g._a, 1) == Unsafe.Add(ref _a, 1) &&
+                    Unsafe.Add(ref g._a, 2) == Unsafe.Add(ref _a, 2) &&
+                    Unsafe.Add(ref g._a, 3) == Unsafe.Add(ref _a, 3);
+            }
         }
 
         private int GetResult(uint me, uint them)
