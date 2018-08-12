@@ -1288,8 +1288,11 @@ void Lowering::LowerArg(GenTreeCall* call, GenTree** ppArg)
     // Assignments/stores at this level are not really placing an argument.
     // They are setting up temporary locals that will later be placed into
     // outgoing regs or stack.
-    if (arg->OperIsStore() || arg->IsArgPlaceHolderNode() || arg->IsNothingNode() || arg->OperIsCopyBlkOp())
+    // Note that atomic ops may be stores and still produce a value.
+    if (!arg->IsValue())
     {
+        assert((arg->OperIsStore() && !arg->IsValue()) || arg->IsArgPlaceHolderNode() || arg->IsNothingNode() ||
+               arg->OperIsCopyBlkOp());
         return;
     }
 
@@ -5246,6 +5249,12 @@ void Lowering::DoPhase()
     }
 #endif
 
+    // Recompute local var ref counts before potentially sorting.
+    // Note this does minimal work in cases where we are not going to sort.
+    const bool isRecompute    = true;
+    const bool setSlotNumbers = false;
+    comp->lvaComputeRefCounts(isRecompute, setSlotNumbers);
+
     // TODO-Throughput: We re-sort local variables to get the goodness of enregistering recently
     // introduced local variables both by Rationalize and Lower; downside is we need to
     // recompute standard local variable liveness in order to get Linear CodeGen working.
@@ -5297,8 +5306,10 @@ void Lowering::DoPhase()
 //
 void Lowering::CheckCallArg(GenTree* arg)
 {
-    if (arg->OperIsStore() || arg->IsArgPlaceHolderNode() || arg->IsNothingNode() || arg->OperIsCopyBlkOp())
+    if (!arg->IsValue() && !arg->OperIsPutArgStk())
     {
+        assert((arg->OperIsStore() && !arg->IsValue()) || arg->IsArgPlaceHolderNode() || arg->IsNothingNode() ||
+               arg->OperIsCopyBlkOp());
         return;
     }
 

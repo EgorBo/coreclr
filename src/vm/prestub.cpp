@@ -315,10 +315,11 @@ PCODE MethodDesc::PrepareILBasedCode(PrepareCodeConfig* pConfig)
     {
         LOG((LF_CLASSLOADER, LL_INFO1000000,
             "    In PrepareILBasedCode, calling JitCompileCode\n"));
-        // Mark the code as hot in case the method ends up in the native image
-        g_IBCLogger.LogMethodCodeAccess(this);
         pCode = JitCompileCode(pConfig);
     }
+
+    // Mark the code as hot in case the method ends up in the native image
+    g_IBCLogger.LogMethodCodeAccess(this);
 
     return pCode;
 }
@@ -1648,16 +1649,6 @@ PCODE MethodDesc::DoPrestub(MethodTable *pDispatchingMT)
 
     // Running a prestub on a method causes us to access its MethodTable
     g_IBCLogger.LogMethodDescAccess(this);
-
-    // A secondary layer of defense against executing code in inspection-only assembly.
-    // This should already have been taken care of by not allowing inspection assemblies
-    // to be activated. However, this is a very inexpensive piece of insurance in the name
-    // of security.
-    if (IsIntrospectionOnly())
-    {
-        _ASSERTE(!"A ReflectionOnly assembly reached the prestub. This should not have happened.");
-        COMPlusThrow(kInvalidOperationException, IDS_EE_CODEEXECUTION_IN_INTROSPECTIVE_ASSEMBLY);
-    }
 
     if (ContainsGenericVariables())
     {

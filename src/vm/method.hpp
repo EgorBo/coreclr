@@ -704,7 +704,6 @@ public:
         InterlockedUpdateFlags(mdcNotInline, set);
     }
 
-    BOOL IsIntrospectionOnly();
 #ifndef DACCESS_COMPILE
     VOID EnsureActive();
 #endif
@@ -2870,9 +2869,8 @@ public:
     LPVOID FindEntryPoint(HINSTANCE hMod) const;
 
 private:
-    Stub* GenerateStubForHost(LPVOID pNativeTarget, Stub *pInnerStub);
 #ifdef MDA_SUPPORTED    
-    Stub* GenerateStubForMDA(LPVOID pNativeTarget, Stub *pInnerStub, BOOL fCalledByStub);
+    Stub* GenerateStubForMDA(LPVOID pNativeTarget, Stub *pInnerStub);
 #endif // MDA_SUPPORTED
 
 public:
@@ -3055,7 +3053,6 @@ struct ComPlusCallInfo
         LPVOID      m_pInterceptStub;    // used for early-bound IL stub calls
     };
 
-    Stub *GenerateStubForHost(LoaderHeap *pHeap, Stub *pInnerStub);
 #else // _TARGET_X86_
     void InitStackArgumentSize()
     {

@@ -183,6 +183,13 @@ public:
 
 typedef JitExpandArray<LclSsaVarDsc> PerSsaArray;
 
+enum RefCountState
+{
+    RCS_INVALID, // not valid to get/set ref counts
+    RCS_EARLY,   // early counts for struct promotion and struct passing
+    RCS_NORMAL,  // normal ref counts (from lvaMarkRefs onward)
+};
+
 class LclVarDsc
 {
 public:
@@ -306,6 +313,9 @@ public:
 #ifdef DEBUG
     unsigned char lvClassInfoUpdated : 1; // true if this var has updated class handle or exactness
 #endif
+
+    unsigned char lvImplicitlyReferenced : 1; // true if there are non-IR references to this local (prolog, epilog, gc,
+                                              // eh)
 
     union {
         unsigned lvFieldLclStart; // The index of the local var representing the first field in the promoted struct
@@ -588,8 +598,6 @@ public:
         return regMask;
     }
 
-    regMaskSmall lvPrefReg; // set of regs it prefers to live in
-
     unsigned short lvVarIndex; // variable tracking index
 
 private:
@@ -599,54 +607,19 @@ private:
                                // appearance count (computed during address-exposed analysis)
                                // that fgMakeOutgoingStructArgCopy consults during global morph
                                // to determine if eliding its copy is legal.
-    unsigned m_lvRefCntWtd;    // weighted reference count
+
+    BasicBlock::weight_t m_lvRefCntWtd; // weighted reference count
 
 public:
-    unsigned short lvRefCnt() const
-    {
-        return m_lvRefCnt;
-    }
+    unsigned short lvRefCnt(RefCountState state = RCS_NORMAL) const;
+    void incLvRefCnt(unsigned short delta, RefCountState state = RCS_NORMAL);
+    void decLvRefCnt(unsigned short delta, RefCountState state = RCS_NORMAL);
+    void setLvRefCnt(unsigned short newValue, RefCountState state = RCS_NORMAL);
 
-    void incLvRefCnt(unsigned short delta)
-    {
-        unsigned short oldRefCnt = m_lvRefCnt;
-        m_lvRefCnt += delta;
-        assert(m_lvRefCnt >= oldRefCnt);
-    }
-
-    void decLvRefCnt(unsigned short delta)
-    {
-        assert(m_lvRefCnt >= delta);
-        m_lvRefCnt -= delta;
-    }
-
-    void setLvRefCnt(unsigned short newValue)
-    {
-        m_lvRefCnt = newValue;
-    }
-
-    unsigned lvRefCntWtd() const
-    {
-        return m_lvRefCntWtd;
-    }
-
-    void incLvRefCntWtd(unsigned delta)
-    {
-        unsigned oldRefCntWtd = m_lvRefCntWtd;
-        m_lvRefCntWtd += delta;
-        assert(m_lvRefCntWtd >= oldRefCntWtd);
-    }
-
-    void decLvRefCntWtd(unsigned delta)
-    {
-        assert(m_lvRefCntWtd >= delta);
-        m_lvRefCntWtd -= delta;
-    }
-
-    void setLvRefCntWtd(unsigned newValue)
-    {
-        m_lvRefCntWtd = newValue;
-    }
+    BasicBlock::weight_t lvRefCntWtd(RefCountState state = RCS_NORMAL) const;
+    void incLvRefCntWtd(BasicBlock::weight_t delta, RefCountState state = RCS_NORMAL);
+    void decLvRefCntWtd(BasicBlock::weight_t delta, RefCountState state = RCS_NORMAL);
+    void setLvRefCntWtd(BasicBlock::weight_t newValue, RefCountState state = RCS_NORMAL);
 
     int      lvStkOffs;   // stack offset of home
     unsigned lvExactSize; // (exact) size of the type in bytes
@@ -687,6 +660,7 @@ public:
         // For 32-bit architectures, we make local variable SIMD12 types 16 bytes instead of just 12. We can't do
         // this for arguments, which must be passed according the defined ABI. We don't want to do this for
         // dependently promoted struct fields, but we don't know that here. See lvaMapSimd12ToSimd16().
+        // (Note that for 64-bits, we are already rounding up to 16.)
         if ((lvType == TYP_SIMD12) && !lvIsParam)
         {
             assert(lvExactSize == 12);
@@ -737,9 +711,15 @@ public:
                !(lvIsParam || lvAddrExposed || lvIsStructField);
     }
 
-    void lvaResetSortAgainFlag(Compiler* pComp);
-    void decRefCnts(BasicBlock::weight_t weight, Compiler* pComp, bool propagate = true);
-    void incRefCnts(BasicBlock::weight_t weight, Compiler* pComp, bool propagate = true);
+    void lvaResetSortAgainFlag(Compiler* pComp, RefCountState = RCS_NORMAL);
+    void decRefCnts(BasicBlock::weight_t weight,
+                    Compiler*            pComp,
+                    RefCountState        state     = RCS_NORMAL,
+                    bool                 propagate = true);
+    void incRefCnts(BasicBlock::weight_t weight,
+                    Compiler*            pComp,
+                    RefCountState        state     = RCS_NORMAL,
+                    bool                 propagate = true);
     void setPrefReg(regNumber regNum, Compiler* pComp);
     void addPrefReg(regMaskTP regMask, Compiler* pComp);
     bool IsFloatRegType() const
@@ -2554,11 +2534,16 @@ public:
     };
 
 public:
-    bool     lvaRefCountingStarted; // Set to true when we have started counting the local vars
-    bool     lvaLocalVarRefCounted; // Set to true after we have called lvaMarkLocalVars()
-    bool     lvaSortAgain;          // true: We need to sort the lvaTable
-    bool     lvaTrackedFixed;       // true: We cannot add new 'tracked' variable
-    unsigned lvaCount;              // total number of locals
+    RefCountState lvaRefCountState; // Current local ref count state
+
+    bool lvaLocalVarRefCounted() const
+    {
+        return lvaRefCountState == RCS_NORMAL;
+    }
+
+    bool     lvaSortAgain;    // true: We need to sort the lvaTable
+    bool     lvaTrackedFixed; // true: We cannot add new 'tracked' variable
+    unsigned lvaCount;        // total number of locals
 
     unsigned   lvaRefCount; // total number of references to locals
     LclVarDsc* lvaTable;    // variable descriptor table
@@ -2805,9 +2790,9 @@ public:
     void lvaSortByRefCount();
     void lvaDumpRefCounts();
 
-    void lvaMarkLocalVars(BasicBlock* block);
-
     void lvaMarkLocalVars(); // Local variable ref-counting
+    void lvaComputeRefCounts(bool isRecompute, bool setSlotNumbers);
+    void lvaMarkLocalVars(BasicBlock* block, bool isRecompute);
 
     void lvaAllocOutgoingArgSpaceVar(); // Set up lvaOutgoingArgSpaceVar
 
@@ -2985,16 +2970,9 @@ public:
     //=========================================================================
 
 protected:
-//---------------- Local variable ref-counting ----------------------------
+    //---------------- Local variable ref-counting ----------------------------
 
-#if ASSERTION_PROP
-    BasicBlock* lvaMarkRefsCurBlock;
-    GenTree*    lvaMarkRefsCurStmt;
-#endif
-    BasicBlock::weight_t lvaMarkRefsWeight;
-
-    void lvaMarkLclRefs(GenTree* tree);
-
+    void lvaMarkLclRefs(GenTree* tree, BasicBlock* block, GenTreeStmt* stmt, bool isRecompute);
     bool IsDominatedByExceptionalEntry(BasicBlock* block);
     void SetVolatileHint(LclVarDsc* varDsc);
 

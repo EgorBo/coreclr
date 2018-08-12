@@ -405,6 +405,10 @@ VOID GenerateShuffleArray(MethodDesc* pInvoke, MethodDesc *pTargetMeth, SArray<S
     {
         // The return buffer argument is implicit in both signatures.
 
+#if !defined(_TARGET_ARM64_) || !defined(CALLDESCR_RETBUFFARGREG)
+        // The ifdef above disables this code if the ret buff arg is always in the same register, which
+        // means that we don't need to do any shuffling for it.
+
         sArgPlacerSrc.GetRetBuffArgLoc(&sArgSrc);
         sArgPlacerDst.GetRetBuffArgLoc(&sArgDst);
 
@@ -419,6 +423,7 @@ VOID GenerateShuffleArray(MethodDesc* pInvoke, MethodDesc *pTargetMeth, SArray<S
         // along) in the case where it's not a no-op (i.e. the source and destination ops are different).
         if (entry.srcofs != entry.dstofs)
             pShuffleEntryArray->Append(entry);
+#endif // !defined(_TARGET_ARM64_) || !defined(CALLDESCR_RETBUFFARGREG)
     }
 
     // Iterate all the regular arguments. mapping source registers and stack locations to the corresponding
@@ -1433,15 +1438,12 @@ OBJECTREF COMDelegate::ConvertToDelegate(LPVOID pCallback, MethodTable* pMT)
         MethodDesc *pStubMD = pClass->m_pForwardStubMD;
         _ASSERTE(pStubMD != NULL && pStubMD->IsILStub());
 
-
-#ifdef MDA_SUPPORTED
+#if defined(MDA_SUPPORTED)
         if (MDA_GET_ASSISTANT(PInvokeStackImbalance))
         {
             pInterceptStub = GenerateStubForMDA(pMD, pStubMD, pCallback, pInterceptStub);
         }
 #endif // MDA_SUPPORTED
-
-
     }
 
     if (pInterceptStub != NULL)
@@ -1454,7 +1456,7 @@ OBJECTREF COMDelegate::ConvertToDelegate(LPVOID pCallback, MethodTable* pMT)
     }
 
     GCPROTECT_END();
-#endif // defined(_TARGET_X86_)
+#endif // _TARGET_X86_
 
     return delObj;
 }
