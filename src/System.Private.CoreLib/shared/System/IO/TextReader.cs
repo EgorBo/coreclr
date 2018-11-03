@@ -126,14 +126,22 @@ namespace System.IO
         // TextReader, and returns them as one string.
         public virtual string ReadToEnd()
         {
-            char[] chars = new char[4096];
-            int len;
-            StringBuilder sb = new StringBuilder(4096);
-            while ((len = Read(chars, 0, chars.Length)) != 0)
+            const int bufferSize = 4096;
+            char[] chars = ArrayPool<char>.Shared.Rent(bufferSize);
+            try
             {
-                sb.Append(chars, 0, len);
+                int len;
+                var sb = new StringBuilder(bufferSize);
+                while ((len = Read(chars, 0, bufferSize)) != 0)
+                {
+                    sb.Append(chars, 0, len);
+                }
+                return sb.ToString();
             }
-            return sb.ToString();
+            finally
+            {
+                ArrayPool<char>.Shared.Return(chars);
+            }
         }
 
         // Blocking version of read.  Returns only when count
