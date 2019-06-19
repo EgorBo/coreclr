@@ -157,7 +157,29 @@ FCIMPL1(INT32, ArrayNative::GetElementSize, ArrayBase* array)
 }
 FCIMPLEND
 
+FCIMPL1(FC_BOOL_RET, ArrayNative::GetArrayPoolState, ArrayBase* array)
+{
+    FCALL_CONTRACT;
 
+    VALIDATEOBJECT(array);
+
+    _ASSERTE(array != NULL);
+
+    return (FC_BOOL_RET)array->GetArrayPoolState();
+}
+FCIMPLEND
+
+FCIMPL2(void, ArrayNative::SetArrayPoolState, ArrayBase* array, CLR_BOOL state)
+{
+    FCALL_CONTRACT;
+
+    VALIDATEOBJECT(array);
+
+    _ASSERTE(array != NULL);
+
+    array->SetArrayPoolState((BOOL)state);
+}
+FCIMPLEND
 
 // array is GC protected by caller
 void ArrayInitializeWorker(ARRAYBASEREF * arrayRef,
@@ -946,7 +968,7 @@ FCIMPL6(void, ArrayNative::ArrayCopy, ArrayBase* m_pSrc, INT32 m_iSrcIndex, Arra
     {
         BASEARRAYREF pSrc;
         BASEARRAYREF pDst;
-    } gc;
+    } gc;   
 
     gc.pSrc = (BASEARRAYREF)m_pSrc;
     gc.pDst = (BASEARRAYREF)m_pDst;

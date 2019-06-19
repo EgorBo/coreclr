@@ -665,6 +665,18 @@ public:
             return dac_cast<PTR_INT32>(GVAL_ADDR(s_arrayBoundsZero));
     }
 
+    BOOL GetArrayPoolState() {
+        DWORD ret = GetHeader()->GetBits() & (BIT_SBLK_ARRAY_FROM_ARRAYPOOL_MASK);
+        return ret != 0;
+    }
+
+    void SetArrayPoolState(BOOL state) {
+        if (state)
+            GetHeader()->SetBit(BIT_SBLK_ARRAY_FROM_ARRAYPOOL_MASK);
+        else
+            GetHeader()->ClrBit(BIT_SBLK_ARRAY_FROM_ARRAYPOOL_MASK);
+    }
+
     static unsigned GetOffsetOfNumComponents() {
         LIMITED_METHOD_CONTRACT;
         return offsetof(ArrayBase, m_NumComponents);

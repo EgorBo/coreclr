@@ -53,6 +53,9 @@ public:
     // to a field.
     static FCDECL2_IV(void, InitializeArray, ArrayBase* vArrayRef, FCALLRuntimeFieldHandle structField);
 
+    static FCDECL1(FC_BOOL_RET, GetArrayPoolState, ArrayBase* array);
+    static FCDECL2(void, SetArrayPoolState, ArrayBase* array, CLR_BOOL state);
+
 private:
     // Helper for CreateInstance
     static void CheckElementType(TypeHandle elementType);

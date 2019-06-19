@@ -137,12 +137,14 @@ namespace System.Buffers
 
                 // No buffer available.  Allocate a new buffer with a size corresponding to the appropriate bucket.
                 buffer = GC.AllocateUninitializedArray<T>(_bucketArraySizes[bucketIndex]);
+                buffer.SetArrayPoolState(true);
             }
             else
             {
                 // The request was for a size too large for the pool.  Allocate an array of exactly the requested length.
                 // When it's returned to the pool, we'll simply throw it away.
                 buffer = GC.AllocateUninitializedArray<T>(minimumLength);
+                buffer.SetArrayPoolState(true);
             }
 
             if (log.IsEnabled())
@@ -162,6 +164,11 @@ namespace System.Buffers
             if (array == null)
             {
                 throw new ArgumentNullException(nameof(array));
+            }
+
+            if (!array.GetArrayPoolState())
+            {
+                return;
             }
 
             // Determine with what bucket this array length is associated
@@ -221,6 +228,7 @@ namespace System.Buffers
             {
                 log.BufferReturned(array.GetHashCode(), array.Length, Id);
             }
+            array.SetArrayPoolState(false);
         }
 
         public bool Trim()

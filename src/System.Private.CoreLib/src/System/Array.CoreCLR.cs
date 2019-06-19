@@ -369,6 +369,12 @@ namespace System
         internal extern ref byte GetRawArrayData();
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern bool GetArrayPoolState();
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        internal extern void SetArrayPoolState(bool state);
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern int GetElementSize();
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
