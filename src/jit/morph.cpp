@@ -13072,6 +13072,18 @@ DONE_MORPHING_CHILDREN:
                         }
                     }
                 }
+
+
+                tree = fgRecognizeAndMorphMyPattern(tree);
+                if (tree->OperGet() != GT_ADD)
+                {
+                    // fgRecognizeAndMorphMyPattern returned a new tree
+                    oper = tree->OperGet();
+                    typ = tree->TypeGet();
+                    op1 = tree->gtOp.gtOp1;
+                    op2 = tree->gtOp.gtOp2;
+                    break;
+                }
             }
             /* See if we can fold GT_MUL by const nodes */
             else if (oper == GT_MUL && op2->IsCnsIntOrI() && !optValnumCSE_phase)
@@ -14361,18 +14373,84 @@ bool Compiler::fgOperIsBitwiseRotationRoot(genTreeOps oper)
     return (oper == GT_OR) || (oper == GT_XOR);
 }
 
-//------------------------------------------------------------------------------
-// fgRecognizeAndMorphBitwiseRotation : Check if the tree represents a left or right rotation. If so, return
-//                                      an equivalent GT_ROL or GT_ROR tree; otherwise, return the original tree.
-//
-// Arguments:
-//    tree  - tree to check for a rotation pattern
-//
-// Return Value:
-//    An equivalent GT_ROL or GT_ROR tree if a pattern is found; original tree otherwise.
-//
-// Assumption:
-//    The input is a GT_OR or a GT_XOR tree.
+GenTree* Compiler::fgRecognizeAndMorphMyPattern(GenTree* tree)
+{
+    //
+    // Check for my blog pattern :-) e.g.,
+    //
+    //                        ADD                     MUL
+    //                      /     \                 /     \.
+    //                    MUL     MUL      ->      z      ADD
+    //                    / \     / \.                    / \
+    //                   x   z   y   z                   x   y
+    //
+    // The patterns recognized:
+    // x * z + y * z (only this one is implemented for now)
+    // x * z + z * y
+    // z * x + y * z
+    // z * x + z * y
+    // x * z - y * z
+    // x * z - z * y
+    // z * x - y * z
+    // z * x - z * y
+    // DSL to declare them all sounds like a good idea ;-)
+
+    // make sure the root node is ADD
+    if (tree->OperGet() != GT_ADD)
+        return tree;
+
+    GenTree* leftMul = tree->gtGetOp1();
+    GenTree* rightMul = tree->gtGetOp2();
+
+    // we need both ops to be MUL (see graph ^)
+    if ((leftMul->OperGet() != GT_MUL) || (rightMul->OperGet() != GT_MUL))
+        return tree;
+
+    // optimize only if there are no side effects
+    if (((tree->gtFlags & GTF_PERSISTENT_SIDE_EFFECTS) != 0) || ((tree->gtFlags & GTF_ORDER_SIDEEFF) != 0))
+    {
+        // We can't do anything if the tree has assignments, calls, or volatile
+        // reads. Note that we allow GTF_EXCEPT side effect since any exceptions
+        // thrown by the original tree will be thrown by the transformed tree as well.
+
+        // TODO: do I have to check sub-nodes?
+        return tree;
+    }
+
+    GenTree* x;
+    GenTree* z;
+    GenTree* y;
+
+    // test for "x * z + y * z"
+    if (GenTree::Compare(leftMul->gtGetOp2(), rightMul->gtGetOp2()))
+    {
+        x = leftMul->gtGetOp1();
+        y = rightMul->gtGetOp1();
+        z = rightMul->gtGetOp2();
+    }
+    else
+    {
+        // TODO: other patterns from the comment above ^
+        return tree;
+    }
+
+    var_types type = genActualType(tree->gtType);
+    // TODO: check types - e.g. we can't do it for floats (there is no "fast-math" mode yet)
+
+    // We can use the same tree only during global morph; reusing the tree in a later morph
+    // may invalidate value numbers.
+    if (fgGlobalMorph)
+    {
+        tree->gtOp.gtOp1 = z;
+        tree->gtOp.gtOp2 = gtNewOperNode(GT_ADD, type, x, y);
+        tree->ChangeOper(GT_MUL);
+        return tree;
+    }
+    else
+    {
+        return gtNewOperNode(GT_MUL, type, z, gtNewOperNode(GT_ADD, type, x, y));
+    }
+}
 
 GenTree* Compiler::fgRecognizeAndMorphBitwiseRotation(GenTree* tree)
 {
