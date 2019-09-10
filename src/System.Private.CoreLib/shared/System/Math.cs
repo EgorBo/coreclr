@@ -18,6 +18,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using System.Runtime.Versioning;
 
 namespace System
@@ -567,8 +569,15 @@ namespace System
         }
 
         [NonVersionable]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Max(int val1, int val2)
         {
+            if (Sse41.IsSupported)
+            {
+                Vector128<int> vec1 = Vector128.CreateScalarUnsafe(val1);
+                Vector128<int> vec2 = Vector128.CreateScalarUnsafe(val2);
+                return Sse41.Max(vec1, vec2).ToScalar();
+            }
             return (val1 >= val2) ? val1 : val2;
         }
 
@@ -691,8 +700,15 @@ namespace System
         }
 
         [NonVersionable]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Min(int val1, int val2)
         {
+            if (Sse41.IsSupported)
+            {
+                Vector128<int> vec1 = Vector128.CreateScalarUnsafe(val1);
+                Vector128<int> vec2 = Vector128.CreateScalarUnsafe(val2);
+                return Sse41.Min(vec1, vec2).ToScalar();
+            }
             return (val1 <= val2) ? val1 : val2;
         }
 
