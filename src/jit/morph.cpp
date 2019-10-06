@@ -8275,6 +8275,36 @@ GenTree* Compiler::fgMorphCall(GenTreeCall* call)
     call = fgMorphArgs(call);
     noway_assert(call->gtOper == GT_CALL);
 
+    // Replace string.Equals("literal", "literal") with 'true'
+    if ((call->gtCallMoreFlags & GTF_CALL_M_SPECIAL_INTRINSIC) && lookupNamedIntrinsic(call->gtCallMethHnd) == NI_System_String_Equals)
+    {
+        assert(call->fgArgInfo->ArgCount() == 2);
+        call->gtCallMoreFlags &= ~GTF_CALL_M_SPECIAL_INTRINSIC;
+
+        GenTree* arg1 = gtArgEntryByArgNum(call, 0)->GetNode();
+        if (arg1->isIndir() && arg1->AsIndir()->HasBase() && arg1->AsIndir()->Base()->IsCnsIntOrI())
+        {
+            GenTreeIntCon* arg1Con = arg1->AsIndir()->Base()->AsIntCon();
+            GenTree* arg2 = gtArgEntryByArgNum(call, 1)->GetNode();
+            if (arg2->isIndir() && arg2->AsIndir()->HasBase() && arg2->AsIndir()->Base()->IsCnsIntOrI())
+            {
+                GenTreeIntCon* arg2Con = arg2->AsIndir()->Base()->AsIntCon();
+                if (arg1Con->IconValue() == arg2Con->IconValue())
+                {
+                    GenTree* newNode = gtNewIconNode(1, TYP_BOOL);
+                    INDEBUG(newNode->gtDebugFlags |= GTF_DEBUG_NODE_MORPHED);
+                    DEBUG_DESTROY_NODE(call);
+                    return newNode;
+                }
+                else
+                {
+                    //TODO: compare strings via JIT interface
+                    //info.compCompHnd->compareStrings()
+                }
+            }
+        }
+    }
+
     // Morph stelem.ref helper call to store a null value, into a store into an array without the helper.
     // This needs to be done after the arguments are morphed to ensure constant propagation has already taken place.
     if ((call->gtCallType == CT_HELPER) && (call->gtCallMethHnd == eeFindHelper(CORINFO_HELP_ARRADDR_ST)))

@@ -4057,6 +4057,7 @@ GenTree* Compiler::impIntrinsic(GenTree*                newobjThis,
                 break;
             }
 
+            case NI_System_String_Equals:
             case NI_System_Collections_Generic_EqualityComparer_get_Default:
             {
                 // Flag for later handling during devirtualization.
@@ -4282,6 +4283,10 @@ NamedIntrinsic Compiler::lookupNamedIntrinsic(CORINFO_METHOD_HANDLE method)
                     result = NI_System_MathF_Round;
                 }
             }
+        }
+        else if ((strcmp(className, "String") == 0) && (strcmp(methodName, "Equals") == 0))
+        {
+            result = NI_System_String_Equals;
         }
     }
 #if defined(_TARGET_XARCH_) // We currently only support BSWAP on x86

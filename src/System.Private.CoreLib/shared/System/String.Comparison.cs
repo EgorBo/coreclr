@@ -602,6 +602,7 @@ namespace System
         }
 
         // Determines whether two strings match.
+        [Intrinsic]
         public bool Equals(string? value)
         {
             if (object.ReferenceEquals(this, value))
@@ -661,6 +662,7 @@ namespace System
         }
 
         // Determines whether two Strings match.
+        [Intrinsic]
         public static bool Equals(string? a, string? b)
         {
             if (object.ReferenceEquals(a, b))
