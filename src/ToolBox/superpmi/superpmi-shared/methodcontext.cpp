@@ -2426,6 +2426,34 @@ bool MethodContext::fndGetFunctionEntryPoint(DLD value, CORINFO_METHOD_HANDLE* p
     return false;
 }
 
+void MethodContext::recCreateStringLiteral(const char* str, void* pValue, InfoAccessType result)
+{
+    if (CreateStringLiteral == nullptr)
+        CreateStringLiteral = new LightWeightMap<DWORD, DLD>();
+    DLD temp2;
+    temp2.A = (DWORDLONG)pValue;
+    temp2.B = (DWORD)result;
+
+    DWORD temp = CreateStringLiteral->AddBuffer((unsigned char*)str, (DWORD)strlen(str) + 1);
+
+    CreateStringLiteral->Add(temp, temp2);
+    DEBUG_REC(dmpCreateStringLiteral(temp, temp2));
+}
+void MethodContext::dmpCreateStringLiteral(DWORD key, DLD value)
+{
+    printf("CreateStringLiteral");
+}
+InfoAccessType MethodContext::repCreateStringLiteral(const char* str, void** ppValue)
+{
+    DWORD temp = CreateStringLiteral->AddBuffer((unsigned char*)str, (DWORD)strlen(str) + 1);
+    DLD temp2;
+    temp2    = CreateStringLiteral->Get(temp);
+
+    *ppValue = (void*)temp2.A;
+    DEBUG_REP(dmpCreateStringLiteral(temp, temp2));
+    return (InfoAccessType)temp2.B;
+}
+
 void MethodContext::recConstructStringLiteral(CORINFO_MODULE_HANDLE module,
                                               mdToken               metaTok,
                                               void*                 pValue,
@@ -2464,6 +2492,50 @@ InfoAccessType MethodContext::repConstructStringLiteral(CORINFO_MODULE_HANDLE mo
     temp2    = ConstructStringLiteral->Get(temp);
     *ppValue = (void*)temp2.A;
     DEBUG_REP(dmpConstructStringLiteral(temp, temp2));
+    return (InfoAccessType)temp2.B;
+}
+
+void MethodContext::recConcatStringLiterals(
+    void* str1, void* str2, void* str3, void* str4,
+    void*                 pValue,
+    InfoAccessType        result)
+{
+    if (ConcatStringLiterals == nullptr)
+        ConcatStringLiterals = new LightWeightMap<Agnostic_ConcatStringLiterals, DLD>();
+
+    Agnostic_ConcatStringLiterals temp;
+    ZeroMemory(&temp, sizeof(Agnostic_ConcatStringLiterals));
+    temp.Str1  = (DWORDLONG)str1;
+    temp.Str2  = (DWORDLONG)str2;
+    temp.Str3  = (DWORDLONG)str3;
+    temp.Str4  = (DWORDLONG)str4;
+
+    DLD temp2;
+    temp2.A = (DWORDLONG)pValue;
+    temp2.B = (DWORD)result;
+
+    ConcatStringLiterals->Add(temp, temp2);
+    DEBUG_REC(dmpConcatStringLiterals(temp, temp2));
+}
+void MethodContext::dmpConcatStringLiterals(Agnostic_ConcatStringLiterals key, DLD value)
+{
+    printf("ConcatStringLiterals"); // TODO:
+}
+InfoAccessType MethodContext::repConcatStringLiterals(
+    void* str1, void* str2, void* str3, void* str4,
+    void** ppValue)
+{
+    Agnostic_ConcatStringLiterals temp;
+    ZeroMemory(&temp, sizeof(DLD));
+    temp.Str1  = (DWORDLONG)str1;
+    temp.Str2  = (DWORDLONG)str2;
+    temp.Str3  = (DWORDLONG)str3;
+    temp.Str4  = (DWORDLONG)str4;
+
+    DLD temp2;
+    temp2    = ConcatStringLiterals->Get(temp);
+    *ppValue = (void*)temp2.A;
+    DEBUG_REP(dmpConcatStringLiterals(temp, temp2));
     return (InfoAccessType)temp2.B;
 }
 

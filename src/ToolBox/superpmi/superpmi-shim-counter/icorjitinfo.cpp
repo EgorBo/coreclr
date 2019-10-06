@@ -1451,6 +1451,22 @@ InfoAccessType interceptor_ICJI::constructStringLiteral(CORINFO_MODULE_HANDLE mo
     return original_ICorJitInfo->constructStringLiteral(module, metaTok, ppValue);
 }
 
+InfoAccessType interceptor_ICJI::createStringLiteral(const char* str, void** ppValue)
+{
+    mcs->AddCall("createStringLiteral");
+    return original_ICorJitInfo->createStringLiteral(str, ppValue);
+}
+
+InfoAccessType interceptor_ICJI::concatStringLiterals(
+    void *str1, void *str2, void *str3, void *str4, 
+    void** ppValue)
+{
+    mcs->AddCall("concatStringLiterals");
+    return original_ICorJitInfo->concatStringLiterals(
+        str1, str2, str3, str4, 
+        ppValue);
+}
+
 bool interceptor_ICJI::convertPInvokeCalliToCall(CORINFO_RESOLVED_TOKEN* pResolvedToken, bool fMustConvert)
 {
     mcs->AddCall("convertPInvokeCalliToCall");

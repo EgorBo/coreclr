@@ -11797,6 +11797,92 @@ InfoAccessType CEEJitInfo::constructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd
     return result;
 }
 
+
+/*********************************************************************/
+InfoAccessType CEEJitInfo::createStringLiteral(const char* str, void **ppValue)
+{
+    CONTRACTL {
+        THROWS;
+        GC_TRIGGERS;
+    } CONTRACTL_END;
+    
+    InfoAccessType result = IAT_PVALUE;
+
+    JIT_TO_EE_TRANSITION();
+
+    _ASSERTE(ppValue != NULL);
+
+    GCX_COOP();
+
+    SString sstr(SString::tagANSI::Ansi, str);
+
+    EEStringData data(sstr.GetCount(), sstr);
+    *ppValue = SystemDomain::System()->DefaultDomain()->GetLoaderAllocator()->GetStringObjRefPtrFromUnicodeString(&data);
+
+    EE_TO_JIT_TRANSITION();
+
+    return result;
+}
+
+/*********************************************************************/
+InfoAccessType CEEJitInfo::concatStringLiterals(
+    void *str1, void *str2, void *str3, void *str4,
+    void **ppValue)
+{
+    CONTRACTL {
+        THROWS;
+        GC_TRIGGERS;
+    } CONTRACTL_END;
+
+    //GCToEEInterface::DisablePreemptiveGC();
+
+    InfoAccessType result = IAT_PVALUE;
+
+    JIT_TO_EE_TRANSITION();
+
+    GCX_COOP();
+
+    _ASSERTE(ppValue != NULL);
+
+    SString newSString;
+    if (str1 != 0)
+    {
+        StackSString ss;
+        (*((STRINGREF*)str1))->GetSString(ss);
+        newSString.Append(ss);
+    }
+
+    if (str2 != 0)
+    {
+        StackSString ss;
+        (*((STRINGREF*)str2))->GetSString(ss);
+        newSString.Append(ss);
+    }
+
+    if (str3 != 0)
+    {
+        StackSString ss;
+        (*((STRINGREF*)str3))->GetSString(ss);
+        newSString.Append(ss);
+    }
+
+    if (str4 != 0)
+    {
+        StackSString ss;
+        (*((STRINGREF*)str4))->GetSString(ss);
+        newSString.Append(ss);
+    }
+
+
+    EEStringData data(newSString.GetCount(), newSString);
+    *ppValue = SystemDomain::System()->DefaultDomain()->GetLoaderAllocator()->GetStringObjRefPtrFromUnicodeString(&data);
+ 
+
+    EE_TO_JIT_TRANSITION();
+
+    return result;
+}
+
 /*********************************************************************/
 InfoAccessType CEEJitInfo::emptyStringLiteral(void ** ppValue)
 {
@@ -14009,6 +14095,20 @@ InfoAccessType CEEInfo::constructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd,
 {
     LIMITED_METHOD_CONTRACT;
     UNREACHABLE();      // only called on derived class.
+}
+
+InfoAccessType CEEInfo::createStringLiteral(const char* str, void **ppValue)
+{
+    LIMITED_METHOD_CONTRACT;
+    UNREACHABLE();      // only called on derived class.
+}
+
+InfoAccessType CEEInfo::concatStringLiterals(
+    void *str1, void *str2, void *str3, void *str4,
+    void **ppValue)
+{
+    LIMITED_METHOD_CONTRACT;
+    UNREACHABLE(); 
 }
 
 InfoAccessType CEEInfo::emptyStringLiteral(void ** ppValue)

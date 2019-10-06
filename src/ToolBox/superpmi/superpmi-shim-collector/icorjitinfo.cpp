@@ -1879,6 +1879,30 @@ InfoAccessType interceptor_ICJI::constructStringLiteral(CORINFO_MODULE_HANDLE mo
     return temp;
 }
 
+// Allocate a string literal on the heap and return a handle to it
+InfoAccessType interceptor_ICJI::createStringLiteral(const char* str, void** ppValue)
+{
+    mc->cr->AddCall("createStringLiteral");
+    InfoAccessType temp = original_ICorJitInfo->createStringLiteral(str, ppValue);
+    mc->recCreateStringLiteral(str, *ppValue, temp);
+    return temp;
+}
+
+// Allocate a string literal on the heap and return a handle to it
+InfoAccessType interceptor_ICJI::concatStringLiterals(
+    void *str1, void *str2, void *str3, void *str4,
+    void** ppValue)
+{
+    mc->cr->AddCall("concatStringLiterals");
+    InfoAccessType temp = original_ICorJitInfo->concatStringLiterals(
+        str1, str2, str3, str4,
+        ppValue);
+    mc->recConcatStringLiterals(
+        str1, str2, str3, str4,
+        *ppValue, temp);
+    return temp;
+}
+
 bool interceptor_ICJI::convertPInvokeCalliToCall(CORINFO_RESOLVED_TOKEN* pResolvedToken, bool fMustConvert)
 {
     mc->cr->AddCall("convertPInvokeCalliToCall");

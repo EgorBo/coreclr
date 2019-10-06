@@ -429,6 +429,12 @@ public:
     InfoAccessType constructStringLiteral(CORINFO_MODULE_HANDLE module,
                                             unsigned metaTok, void **ppIndirection);
 
+    InfoAccessType createStringLiteral(const char* str, void **ppIndirection);
+
+    InfoAccessType concatStringLiterals(
+        void *str1, void *str2, void *str3, void *str4,
+        void **ppIndirection);
+
     InfoAccessType emptyStringLiteral(void **ppIndirection);
 
     void setOverride(ICorDynamicInfo *pOverride, CORINFO_METHOD_HANDLE currentMethod);

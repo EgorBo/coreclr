@@ -3464,6 +3464,14 @@ GenTree* Compiler::impIntrinsic(GenTree*                newobjThis,
                 return gtNewIconNode(false);
             }
 
+            if (ni == NI_System_Environment_get_NewLine)
+            {
+                LPVOID ppValue;
+                InfoAccessType iat = info.compCompHnd->createStringLiteral("\r\n", &ppValue);
+                if (ppValue != nullptr)
+                    return gtNewStringLiteralNode(iat, ppValue);
+            }
+
             if (ni == NI_Throw_PlatformNotSupportedException)
             {
                 return impUnsupportedHWIntrinsic(CORINFO_HELP_THROW_PLATFORM_NOT_SUPPORTED, method, sig, mustExpand);
@@ -4057,6 +4065,8 @@ GenTree* Compiler::impIntrinsic(GenTree*                newobjThis,
                 break;
             }
 
+            case NI_System_String_Concat:
+            //case NI_System_Environment_get_NewLine:
             case NI_System_Collections_Generic_EqualityComparer_get_Default:
             {
                 // Flag for later handling during devirtualization.

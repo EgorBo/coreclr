@@ -952,6 +952,7 @@ enum CorInfoIntrinsics
     CORINFO_INTRINSIC_Array_Set,            // Set the value of an element in an array
     CORINFO_INTRINSIC_StringGetChar,        // fetch character out of string
     CORINFO_INTRINSIC_StringLength,         // get the length
+    CORINFO_INTRINSIC_StringConcat,
     CORINFO_INTRINSIC_InitializeArray,      // initialize an array from static data
     CORINFO_INTRINSIC_GetTypeFromHandle,
     CORINFO_INTRINSIC_RTH_GetValueInternal,
@@ -3193,6 +3194,13 @@ public:
                     mdToken                 metaTok,
                     void                  **ppValue
                     ) = 0;
+
+    virtual InfoAccessType createStringLiteral(const char* str, void **ppValue) = 0;
+
+    virtual InfoAccessType concatStringLiterals(
+        void *str1, void *str2, void *str3, void *str4,
+        void **ppValue
+        ) = 0;
 
     virtual InfoAccessType emptyStringLiteral(
                     void                  **ppValue

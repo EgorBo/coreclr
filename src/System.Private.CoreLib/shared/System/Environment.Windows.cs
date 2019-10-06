@@ -4,6 +4,7 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace System
@@ -47,7 +48,7 @@ namespace System
 
         public static string[] GetLogicalDrives() => DriveInfoInternal.GetLogicalDrives();
 
-        public static string NewLine => "\r\n";
+        public static string NewLine { [Intrinsic] get => "\r\n"; }
 
         public static int SystemPageSize
         {

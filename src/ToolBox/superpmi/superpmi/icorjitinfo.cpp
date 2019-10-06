@@ -1562,6 +1562,22 @@ InfoAccessType MyICJI::constructStringLiteral(CORINFO_MODULE_HANDLE module, mdTo
     return jitInstance->mc->repConstructStringLiteral(module, metaTok, ppValue);
 }
 
+InfoAccessType MyICJI::createStringLiteral(const char* str, void** ppValue)
+{
+    jitInstance->mc->cr->AddCall("createStringLiteral");
+    return jitInstance->mc->repCreateStringLiteral(str, ppValue);
+}
+
+InfoAccessType MyICJI::concatStringLiterals(
+    void *str1, void *str2, void *str3, void *str4,
+    void** ppValue)
+{
+    jitInstance->mc->cr->AddCall("concatStringLiterals");
+    return jitInstance->mc->repConcatStringLiterals(
+        str1, str2, str3, str4, 
+        ppValue);
+}
+
 InfoAccessType MyICJI::emptyStringLiteral(void** ppValue)
 {
     jitInstance->mc->cr->AddCall("emptyStringLiteral");

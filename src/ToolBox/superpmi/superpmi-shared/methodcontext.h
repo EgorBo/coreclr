@@ -288,6 +288,13 @@ public:
         DWORDLONG                       callerHandle;
         DWORD                           flags;
     };
+    struct Agnostic_ConcatStringLiterals
+    {
+        DWORDLONG Str1;
+        DWORDLONG Str2;
+        DWORDLONG Str3;
+        DWORDLONG Str4;
+    };
 
     struct Agnostic_CORINFO_CALL_INFO
     {
@@ -834,6 +841,18 @@ public:
     void dmpConstructStringLiteral(DLD key, DLD value);
     InfoAccessType repConstructStringLiteral(CORINFO_MODULE_HANDLE module, mdToken metaTok, void** ppValue);
 
+    void recCreateStringLiteral(const char* str, void* ppValue, InfoAccessType result);
+    void dmpCreateStringLiteral(DWORD key, DLD value);
+    InfoAccessType repCreateStringLiteral(const char* str, void** ppValue);
+
+    void recConcatStringLiterals(
+        void* str1, void* str2, void* str3, void* str4, 
+        void* ppValue, InfoAccessType result);
+    void dmpConcatStringLiterals(Agnostic_ConcatStringLiterals key, DLD value);
+    InfoAccessType repConcatStringLiterals(
+        void* str1, void* str2, void* str3, void* str4, 
+        void** ppValue);
+
     void recConvertPInvokeCalliToCall(CORINFO_RESOLVED_TOKEN* pResolvedToken, bool fMustConvert, bool result);
     void dmpConvertPInvokeCalliToCall(DLD key, DWORDLONG value);
     bool repConvertPInvokeCalliToCall(CORINFO_RESOLVED_TOKEN* pResolvedToken, bool fMustConvert);
@@ -1352,7 +1371,7 @@ private:
 };
 
 // ********************* Please keep this up-to-date to ease adding more ***************
-// Highest packet number: 174
+// Highest packet number: 176
 // *************************************************************************************
 enum mcPackets
 {
@@ -1379,6 +1398,8 @@ enum mcPackets
     Packet_CompareTypesForEquality                       = 164, // Added 10/4/17
     Packet_CompileMethod                                 = 143, // retired as 141 on 2013/07/09
     Packet_ConstructStringLiteral                        = 15,
+    Packet_CreateStringLiteral                           = 175,
+    Packet_ConcatStringLiterals                          = 176,
     Packet_ConvertPInvokeCalliToCall                     = 169, // Added 4/29/18
     Packet_EmbedClassHandle                              = 16,
     Packet_EmbedFieldHandle                              = 17,

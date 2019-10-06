@@ -899,6 +899,12 @@ bool canGetVarArgsHandle(CORINFO_SIG_INFO* pSig);
 // Allocate a string literal on the heap and return a handle to it
 InfoAccessType constructStringLiteral(CORINFO_MODULE_HANDLE module, mdToken metaTok, void** ppValue);
 
+InfoAccessType createStringLiteral(const char* str, void** ppValue);
+
+InfoAccessType concatStringLiterals(
+    void *str1, void *str2, void *str3, void *str4,
+    void** ppValue);
+
 InfoAccessType emptyStringLiteral(void** ppValue);
 
 // (static fields only) given that 'field' refers to thread local store,

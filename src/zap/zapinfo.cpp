@@ -2589,6 +2589,12 @@ void ZapInfo::addActiveDependency(CORINFO_MODULE_HANDLE moduleFrom, CORINFO_MODU
     }
 }
 
+InfoAccessType
+    ZapInfo::createStringLiteral(const char* str, void **ppValue)
+{
+    *ppValue = nullptr;
+    return IAT_PPVALUE;
+}
 
 InfoAccessType
     ZapInfo::constructStringLiteral(CORINFO_MODULE_HANDLE tokenScope,
@@ -2604,6 +2610,15 @@ InfoAccessType
 
     *ppValue = pImport;
 
+    return IAT_PPVALUE;
+}
+
+InfoAccessType
+    ZapInfo::concatStringLiterals(
+        void *str1, void *str2, void *str3, void *str4,
+        void **ppValue)
+{
+    *ppValue = nullptr;
     return IAT_PPVALUE;
 }
 

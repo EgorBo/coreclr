@@ -959,7 +959,12 @@ public:
                     BOOL                      *pbIndirectedHandles
                     );
 
+    InfoAccessType createStringLiteral(const char* str, void **ppValue);
     InfoAccessType constructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd, mdToken metaTok, void **ppValue);
+    InfoAccessType concatStringLiterals(
+        void *str1, void *str2, void *str3, void *str4,
+        void **ppIndirection);
+
     InfoAccessType emptyStringLiteral(void ** ppValue);
     void* getMethodSync(CORINFO_METHOD_HANDLE ftnHnd, void **ppIndirection);
 
@@ -1502,7 +1507,12 @@ public:
                     BOOL                      *pbIndirectedHandles
                     );
 
+    InfoAccessType createStringLiteral(const char* str, void **ppValue);
     InfoAccessType constructStringLiteral(CORINFO_MODULE_HANDLE scopeHnd, mdToken metaTok, void **ppValue);
+    InfoAccessType concatStringLiterals(
+        void *str1, void *str2, void *str3, void *str4,
+        void **ppIndirection);
+
     InfoAccessType emptyStringLiteral(void ** ppValue);
     void* getFieldAddress(CORINFO_FIELD_HANDLE field, void **ppIndirection);
     CORINFO_CLASS_HANDLE getStaticFieldCurrentClass(CORINFO_FIELD_HANDLE field, bool* pIsSpeculative);

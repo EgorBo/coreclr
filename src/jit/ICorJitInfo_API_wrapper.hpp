@@ -1404,6 +1404,27 @@ InfoAccessType WrapICorJitInfo::constructStringLiteral(
     return temp;
 }
 
+
+InfoAccessType WrapICorJitInfo::createStringLiteral(const char* str, void **ppValue)
+{
+    API_ENTER(createStringLiteral);
+    InfoAccessType temp = wrapHnd->createStringLiteral(str, ppValue);
+    API_LEAVE(createStringLiteral);
+    return temp;
+}
+
+InfoAccessType WrapICorJitInfo::concatStringLiterals(
+        void *str1, void *str2, void *str3, void *str4,
+        void                  **ppValue)
+{
+    API_ENTER(concatStringLiterals);
+    InfoAccessType temp = wrapHnd->concatStringLiterals(
+        str1, str2, str3, str4,
+        ppValue);
+    API_LEAVE(concatStringLiterals);
+    return temp;
+}
+
 InfoAccessType WrapICorJitInfo::emptyStringLiteral(void **ppValue)
 {
     API_ENTER(emptyStringLiteral);

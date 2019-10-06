@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Runtime.CompilerServices;
 using Internal.Runtime.CompilerServices;
 
 namespace System
@@ -245,6 +246,7 @@ namespace System
             }
         }
 
+        [Intrinsic]
         public static string Concat(string? str0, string? str1)
         {
             if (IsNullOrEmpty(str0))
@@ -271,6 +273,7 @@ namespace System
             return result;
         }
 
+        [Intrinsic]
         public static string Concat(string? str0, string? str1, string? str2)
         {
             if (IsNullOrEmpty(str0))
@@ -298,6 +301,7 @@ namespace System
             return result;
         }
 
+        [Intrinsic]
         public static string Concat(string? str0, string? str1, string? str2, string? str3)
         {
             if (IsNullOrEmpty(str0))
