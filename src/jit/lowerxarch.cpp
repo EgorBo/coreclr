@@ -978,6 +978,14 @@ void Lowering::LowerHWIntrinsic(GenTreeHWIntrinsic* node)
             LowerHWIntrinsicCC(node, NI_AVX_PTEST, GenCondition::UGT);
             break;
 
+        case NI_FMA_MultiplyAddScalar: {
+
+            auto arglist = node->AsArgList();
+            printf("fuck");
+
+            break;
+        }
+
         default:
             break;
     }
