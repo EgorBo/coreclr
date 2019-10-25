@@ -3439,6 +3439,231 @@ bool Compiler::optComputeLoopRep(int        constInit,
     return false;
 }
 
+bool Compiler::IsVectorizationCandidate(Statement* stmt, var_types* type, GenTreeLclVar** array, GenTreeLclVar** indexer, int* cnsIndexOffset, GenTree** value)
+{
+    *array          = nullptr;
+    *indexer        = nullptr;
+    *cnsIndexOffset = 0;
+    *value          = nullptr;
+
+    if (stmt == nullptr || !stmt->GetRootNode()->OperIs(GT_ASG))
+        return false;
+
+    GenTree* indir = stmt->GetRootNode()->gtGetOp1();
+    if (!indir->OperIs(GT_IND))
+        return false;
+
+    *value = stmt->GetRootNode()->gtGetOp2();
+
+    if (indir->gtGetOp1()->OperIs(GT_LCL_VAR))
+    {
+        if (indir->TypeGet() != TYP_BYTE || (*value)->TypeGet() != TYP_INT)
+            return false;
+
+        // handle `a[0] = c` for byte (sbyte and bool)
+        *array = indir->gtGetOp1()->AsLclVar();
+        return true;
+    }
+
+    if (!indir->gtGetOp1()->OperIs(GT_ADD))
+        return false;
+
+    GenTreeOp* add = indir->gtGetOp1()->AsOp();
+
+    if (!add->gtGetOp1()->OperIs(GT_LCL_VAR))
+        return false;
+
+    *array = add->gtGetOp1()->AsLclVar();
+
+    if (add->gtGetOp2()->IsCnsIntOrI() || add->gtGetOp2()->IsCnsFltOrDbl())
+    {
+        // handle `a[c1] = c2` cases for different types
+        if ((indir->TypeGet() == TYP_INT     || indir->TypeGet() == TYP_FLOAT) &&
+            (!add->gtGetOp2()->IsCnsIntOrI() || (add->gtGetOp2()->AsIntCon()->IconValue() % 4) != 0))
+            return false;
+        if ((indir->TypeGet() == TYP_LONG    || indir->TypeGet() == TYP_DOUBLE) &&
+            (!add->gtGetOp2()->IsCnsIntOrI() || (add->gtGetOp2()->AsIntCon()->IconValue() % 8) != 0))
+            return false;
+        if (indir->TypeGet() != TYP_LONG && indir->TypeGet() != TYP_INT && indir->TypeGet() != TYP_BYTE &&
+            indir->TypeGet() != TYP_FLOAT && indir->TypeGet() != TYP_DOUBLE)
+            return false;
+
+        *cnsIndexOffset = (int)add->gtGetOp2()->AsIntCon()->IconValue();
+        return true;
+    }
+
+    if (add->gtGetOp2()->OperIs(GT_CAST) && indir->TypeGet() == TYP_BYTE)
+    {
+        // handles `a[i] = c` case for byte
+        if (add->gtGetOp2()->gtGetOp1()->OperIs(GT_LCL_VAR))
+        {
+            *indexer = add->gtGetOp2()->gtGetOp1()->AsLclVar();
+            return true;
+        }
+
+        // handles `a[i + c1] = c2` case for byte
+        if (add->gtGetOp2()->gtGetOp1()->OperIs(GT_ADD) && add->gtGetOp2()->gtGetOp1()->gtGetOp1()->OperIs(GT_LCL_VAR) &&
+            add->gtGetOp2()->gtGetOp1()->gtGetOp2()->IsCnsIntOrI())
+        {
+            *cnsIndexOffset = (int)add->gtGetOp2()->gtGetOp1()->gtGetOp2()->AsIntCon()->IconValue();
+            *indexer        = add->gtGetOp2()->gtGetOp1()->gtGetOp1()->AsLclVar();
+            return true;
+        }
+    }
+
+    if (!add->gtGetOp2()->OperIs(GT_LSH))
+        return false;
+
+    GenTreeOp* lsh = add->gtGetOp2()->AsOp();
+    if (!lsh->gtGetOp1()->OperIs(GT_CAST) || !lsh->gtGetOp2()->IsCnsIntOrI())
+        return false;
+
+    const ssize_t offsetLen = lsh->gtGetOp2()->AsIntCon()->IconValue();
+
+    if (((indir->TypeGet() == TYP_DOUBLE || indir->TypeGet() == TYP_LONG) && offsetLen != 3) ||
+        ((indir->TypeGet() == TYP_FLOAT  || indir->TypeGet() == TYP_INT) && offsetLen != 2)  ||
+        ((indir->TypeGet() == TYP_SHORT) && offsetLen != 1))
+        return false;
+
+    if (lsh->gtGetOp1()->gtGetOp1()->OperIs(GT_LCL_VAR))
+    {
+        // handles `a[i] = c` case for short, int, long, float and double
+        *indexer = lsh->gtGetOp1()->gtGetOp1()->AsLclVar();
+        return true;
+    }
+
+    // handles `a[i + c1] = c2` case for short, int, long, float and double
+    if (lsh->gtGetOp1()->gtGetOp1()->OperIs(GT_ADD) && 
+        lsh->gtGetOp1()->gtGetOp1()->gtGetOp1()->OperIs(GT_LCL_VAR) && 
+        lsh->gtGetOp1()->gtGetOp1()->gtGetOp2()->IsCnsIntOrI())
+    {
+        *indexer        = lsh->gtGetOp1()->gtGetOp1()->gtGetOp1()->AsLclVar();
+        *cnsIndexOffset = (int)lsh->gtGetOp1()->gtGetOp1()->gtGetOp2()->AsIntCon()->IconValue();
+        return true;
+    }
+
+    return false;
+}
+
+void Compiler::optAutovectorize()
+{
+#if defined(FEATURE_HW_INTRINSICS) && defined(_TARGET_XARCH_)
+
+    for (BasicBlock* block = fgFirstBB; block != nullptr; block = block->bbNext)
+    {
+        int            index          = -2;
+        int            indexStart     = -2;
+        Statement*     firstStatement = nullptr;
+        GenTree*       value          = nullptr;
+        GenTreeLclVar* arrayNode      = nullptr;
+        GenTreeLclVar* baseIndexNode  = nullptr;
+
+        for (Statement* stmt : block->Statements())
+        {
+            GenTree*       rootNode = stmt->GetRootNode();
+
+            bool           currentIsCandidate = false;
+            int            currIndexOffset;
+            var_types      currType;
+            GenTree*       currValue;
+            GenTreeLclVar* currArrayLcl;
+            GenTreeLclVar* currIndexerLcl;
+            if (IsVectorizationCandidate(stmt, &currType, &currArrayLcl, &currIndexerLcl, &currIndexOffset, &currValue))
+            {
+                if (index == currIndexOffset - 1)
+                {
+                    // make sure we use the same array
+                    if (currArrayLcl->GetVN(VNK_Conservative) == arrayNode->GetVN(VNK_Conservative))
+                    {
+                        // make sure we use the same indexer variable or without it (constant)
+                        if (currIndexerLcl == baseIndexNode /*both nullptr*/ || 
+                            currIndexerLcl->GetVN(VNK_Conservative) == baseIndexNode->GetVN(VNK_Conservative))
+                        {
+                            // make sure value we store the same value:
+                            if (currValue->GetVN(VNK_Conservative) == arrayNode->GetVN(VNK_Conservative))
+                            {
+                                index++;
+                            }
+                            continue;
+                        }
+                    }
+                }
+                // Can we re-order stores for raw pointers?
+                currentIsCandidate = true;
+            }
+
+            bool removeBlocks = false;
+            int itemsToSkip   = 0;
+            int items         = index - indexStart;
+            // case1: float + AVX (TODO: check for AVX)
+            if (items >= 7 && value->TypeGet() == TYP_FLOAT && value->IsCnsFltOrDbl() && value->AsDblCon()->gtDconVal == 0.0) // currently only 0 is supported
+            {
+                itemsToSkip        = items - 7;
+                var_types simdType = TYP_SIMD32;
+                GenTree* store = gtNewSimdHWIntrinsicNode(simdType, gtCloneExpr(arrayNode),
+                    gtNewSimdHWIntrinsicNode(simdType, NI_Vector256_Zero, value->TypeGet(), genTypeSize(simdType)),
+                    NI_AVX_Store, value->TypeGet(), genTypeSize(simdType));
+
+                compFloatingPointUsed = true; // we are going to need an xmm register
+                store->gtFlags       |= GTF_ASG | GTF_EXCEPT;
+                fgInsertStmtBefore(block, firstStatement, gtNewStmt(store));
+                removeBlocks = true;
+            }
+            if (items >= 3 && value->TypeGet() == TYP_DOUBLE && value->IsCnsFltOrDbl() && value->AsDblCon()->gtDconVal == 0.0) // currently only 0 is supported
+            {
+                itemsToSkip        = items - 3;
+                var_types simdType = TYP_SIMD32;
+                GenTree* store = gtNewSimdHWIntrinsicNode(simdType, gtCloneExpr(arrayNode),
+                    gtNewSimdHWIntrinsicNode(simdType, NI_Vector256_Zero, value->TypeGet(), genTypeSize(simdType)),
+                    NI_AVX_Store, value->TypeGet(), genTypeSize(simdType));
+
+                compFloatingPointUsed = true; // we are going to need an xmm register
+                store->gtFlags       |= GTF_ASG | GTF_EXCEPT;
+                fgInsertStmtBefore(block, firstStatement, gtNewStmt(store));
+                removeBlocks = true;
+            }
+
+            // TODO: other types and SSE
+
+            if (removeBlocks)
+            {
+                // Remove all a[i + c] statements
+                Statement* currStmt = stmt;
+                while (currStmt != firstStatement)
+                {
+                    if (itemsToSkip-- < 0)
+                        fgRemoveStmt(block, currStmt);
+                    currStmt = currStmt->GetPrevStmt();
+                }
+                fgRemoveStmt(block, firstStatement);
+                optAutovectorize(); // now we can try again
+                return;
+            }
+
+            if (currentIsCandidate)
+            {
+                index          = currIndexOffset;
+                indexStart     = currIndexOffset;
+                firstStatement = stmt;
+                arrayNode      = currArrayLcl;
+                baseIndexNode  = currIndexerLcl;
+                value          = currValue;
+            }
+            else
+            {
+                // reset values
+                index          = -2;
+                indexStart     = -2;
+                value          = nullptr;
+                firstStatement = nullptr;
+                arrayNode      = nullptr;
+                baseIndexNode  = nullptr;
+            }
+        }
+    }
+#endif
+}
+
 /*****************************************************************************
  *
  *  Look for loop unrolling candidates and unroll them

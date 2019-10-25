@@ -4682,6 +4682,9 @@ void Compiler::compCompile(void** methodCodePtr, ULONG* methodCodeSize, JitFlags
         /* Unroll loops */
         optUnrollLoops();
         EndPhase(PHASE_UNROLL_LOOPS);
+
+        optAutovectorize();
+        EndPhase(PHASE_AUTOVECTORIZATION);
     }
 
 #ifdef DEBUG

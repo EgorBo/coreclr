@@ -5741,6 +5741,10 @@ public:
     // "ambientWeight".
     void optEnsureUniqueHead(unsigned loopInd, unsigned ambientWeight);
 
+    bool IsVectorizationCandidate(Statement* stmn, var_types* type, GenTreeLclVar** array, GenTreeLclVar** indexer, int* cnsIndexOffset, GenTree** cnsValue);
+
+    void optAutovectorize();
+
     void optUnrollLoops(); // Unrolls loops (needs to have cost info)
 
 protected:
